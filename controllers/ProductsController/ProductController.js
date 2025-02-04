@@ -17,7 +17,7 @@ const GetAllProducts = AsyncWrapper(async (req, res) => {
     const page = query.page || 1;
     const skip = (page - 1) * limit
 
-    const products = await Product.find({}, { "__v": false }).limit(limit).skip(skip);
+    const products = await Product.find({}).limit(limit).skip(skip);
     res.json({ status: HttpStatus.SUCCESS, data: { products } });
 });
 
@@ -39,9 +39,9 @@ const GetOneProduct = AsyncWrapper(
 )
 
 const AddProduct = AsyncWrapper(async (req, res) => {
-    const newProduct = new Product(req.body);
-    const Product = await newProduct.save()
-    res.status(201).json({ status: HttpStatus.SUCCESS, data: { Product } })
+    const newProduct = new Product(req.body); // Use the imported Product model
+    const savedProduct = await newProduct.save(); // Use a different variable name (e.g., savedProduct)
+    res.status(201).json({ status: HttpStatus.SUCCESS, data: { product: savedProduct } }); // Send the saved product
 });
 
 const UpdateOneProduct = AsyncWrapper(async (req, res, next) => {

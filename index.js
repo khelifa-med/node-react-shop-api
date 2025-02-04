@@ -2,9 +2,9 @@ const express = require('express');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const databaseSeeder = require('./dataBaseSlider');
 const userRoute = require('./Routes/UserRoutes');
 const ProductRouter = require('./Routes/ProductRoutes')
+const CategoryRouter = require('./Routes/CategoryRoutes')
 const HttpStatusTexts = require('./Utils/HttpStatusTexts');
 dotenv.config();
 
@@ -25,11 +25,13 @@ app.use(cors());
 // Routes
 app.use(express.json()); // Parse JSON bodies
 // data base route
-app.use('/api/E_Shop', databaseSeeder);
+
 // user route
 app.use('/api/E_Shop/users', userRoute);
 // product route 
 app.use('/api/E_Shop/products', ProductRouter);
+// catefory route 
+app.use('/api/E_Shop/categories', CategoryRouter);
 
 
 
