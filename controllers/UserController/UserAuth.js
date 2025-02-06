@@ -37,7 +37,8 @@ const Register = asyncWrapper(
             name,
             email,
             password,
-            role
+            role,
+            avatar: req.file.filename
         });
 
         // generate jwt token

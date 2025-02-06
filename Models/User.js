@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema({
     enum: [userRules.USER, userRules.ADMIN, userRules.MANAGER],
     default: userRules.USER,
   },
+  avatar: {
+    type: String,
+    default: 'uploads/profile.png'
+  },
   cart: [
     {
       product: {

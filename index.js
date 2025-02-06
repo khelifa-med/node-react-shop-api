@@ -6,9 +6,12 @@ const userRoute = require('./Routes/UserRoutes');
 const ProductRouter = require('./Routes/ProductRoutes')
 const CategoryRouter = require('./Routes/CategoryRoutes')
 const HttpStatusTexts = require('./Utils/HttpStatusTexts');
+const path = require('path');
 dotenv.config();
 
 const app = express();
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 
 const PORT = process.env.PORT || 8000;
