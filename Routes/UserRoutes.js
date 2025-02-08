@@ -4,7 +4,9 @@ const multer = require('multer')
 const AppError = require('../Utils/AppError');
 const { Register, login } = require('../controllers/UserController/UserAuth');
 const verifyToken = require('../midllwers/verifyToken');
+const allowedTo = require('../midllwers/allowedTo');
 const { GetAllUsers, GetOneUser, DeleteOneUser } = require('../controllers/UserController/AcountManagement');
+const userRules = require('../Utils/userRules');
 
 
 
@@ -20,6 +22,8 @@ const storage = multer.diskStorage({
         cb(null, uniqueSuffix)
     }
 })
+
+
 
 
 const fileFilter = (req, file, cb) => {
@@ -42,12 +46,12 @@ const upload = multer(
 
 // users Routes management//
 userRoute.route('/')
-    .get(verifyToken, allowedTo(userRules.ADMIN, userRules.MANAGER), GetAllUsers)
+    .get(verifyToken.verifyToken, allowedTo(userRules.ADMIN, userRules.MANAGER), GetAllUsers)
 
 
 userRoute.route('/:id')
-    .get(verifyToken, allowedTo(userRules.ADMIN, userRules.MANAGER), GetOneUser)
-    .delete(verifyToken, allowedTo(userRules.ADMIN, userRules.MANAGER), DeleteOneUser)
+    .get(verifyToken.verifyToken, allowedTo(userRules.ADMIN, userRules.MANAGER), GetOneUser)
+    .delete(verifyToken.verifyToken , allowedTo(userRules.ADMIN, userRules.MANAGER), DeleteOneUser)
 
 // users Routes management//    
 

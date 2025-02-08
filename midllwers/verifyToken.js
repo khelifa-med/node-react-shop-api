@@ -1,9 +1,11 @@
 const jwt = require('jsonwebtoken');
 const AppError = require('../Utils/AppError');
 const HttpStatusTexts = require('../Utils/HttpStatusTexts');
+const User = require('../Models/User');
+const asyncWrapper = require('./asyncWrapper');
 
 module.exports = {
-    verifyToken: (req, res, next) => {
+    verifyToken: asyncWrapper(async (req, res, next) => {
 
         const authHeader = req.headers['authorization'] || req.headers['Authorization'];
 
@@ -15,17 +17,21 @@ module.exports = {
         }
         const token = authHeader.split(' ')[1];
 
-
         try {
-            // Verify the token
-            const currentUser = jwt.verify(token, process.env.JWT_SECRET_KEY);
-            req.currentUser = currentUser;
+            const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+
+            const user = await User.findById(decoded.id).select('-password');
+
+            if (!user) {
+                return next(AppError.create('User not found', 404, HttpStatusTexts.FAIL));
+            }
+
+            req.user = user; 
             next();
+
         } catch (err) {
-            // If token verification fails, return an error
-            const error = AppError.create('Invalid or expired token', 401, HttpStatusTexts.FAIL);
-            return next(error);
+            return next(AppError.create('Invalid or expired token', 401, HttpStatusTexts.FAIL));
         }
 
-    }
+    })
 }
