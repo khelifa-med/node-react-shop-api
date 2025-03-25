@@ -3,6 +3,7 @@ const Product = require('../../Models/Products');
 const HttpStatus = require('../../Utils/HttpStatusTexts');
 const AsyncWrapper = require('../../midllwers/asyncWrapper');
 const AppError = require('../../Utils/AppError');
+const { createPaypalOrder } = require('../../Service/Paypal'); // Import PayPal functions
 
 const getAllOrders = AsyncWrapper(async (req, res) => {
     const orders = await Order.find({}).populate('user', '-password').populate({
@@ -29,10 +30,13 @@ const getOneOrder = AsyncWrapper(async (req, res, next) => {
     res.status(200).json({ status: HttpStatus.SUCCESS, data: { order } });
 });
 
-const createOrder = AsyncWrapper(async (req, res) => {
-    const { orderItems, shippingAddress, paymentMethod, taxPrice, shippingPrice, totalPrice } = req.body;
 
-    // Validate order items: Check if the products exist and update stock
+// create newOrder nad integrate the paypal connection api with the order created 
+
+const createOrder = AsyncWrapper(async (req, res, next) => {
+    const { orderItems, shippingAddress, paymentMethod, taxPrice, shippingPrice, totalPrice, price } = req.body;
+
+    // 1. Validate order items and update stock (same as before)
     const validatedOrderItems = await Promise.all(
         orderItems.map(async (item) => {
             const product = await Product.findById(item.product);
@@ -43,13 +47,11 @@ const createOrder = AsyncWrapper(async (req, res) => {
                 throw AppError.create(`${product.name} is out of stock`, 400, HttpStatus.FAIL);
             }
 
-            // Update product stock
             await Product.findByIdAndUpdate(product._id, { $inc: { countInStock: -item.quantity } });
 
             return {
                 ...item,
                 name: product.name,
-                // image: product.image,
                 price: product.price,
             };
         })
@@ -63,12 +65,43 @@ const createOrder = AsyncWrapper(async (req, res) => {
         taxPrice,
         shippingPrice,
         totalPrice,
+        price
     });
 
     try {
         const savedOrder = await newOrder.save();
+        const retrievedOrder = await Order.findById(savedOrder._id); // Fetch the order AGAIN
+        if (!retrievedOrder) {
+            return next(AppError.create('Order not found after saving.', 500, HttpStatus.FAIL));
+        }
 
-        // Populate the order data before sending the response (important!)
+        // 2. Handle PayPal payment if paymentMethod is PayPal
+        if (paymentMethod === 'PayPal') {
+            try {
+                const approvalUrl = await createPaypalOrder(req, retrievedOrder); // Pass the test object
+                return res.json({ approvalUrl }); // Send approval URL to the client
+            } catch (paypalError) {
+                // Handle PayPal error (log, revert stock, delete order, send error to client)
+                console.error("PayPal Error:", paypalError);
+                if (paypalError.response && paypalError.response.data) {
+                    const paypalErrorDetails = paypalError.response.data;
+                    console.error("PayPal Error Details:", paypalErrorDetails); // Log the full object
+                    // ...
+                }
+                // Revert Stock Changes (Crucial!)
+                for (const item of validatedOrderItems) {
+                    const product = await Product.findById(item.product);
+                    if (product) {
+                        await Product.findByIdAndUpdate(item.product, { $inc: { countInStock: item.quantity } });
+                    }
+                }
+                await Order.findByIdAndDelete(savedOrder._id); // Delete the order
+
+                return next(paypalError); // Pass the AppError to your error handler
+            }
+        }
+
+        // 3. If not PayPal, or PayPal order creation was successful (but payment not yet captured), complete the order:
         const populatedOrder = await Order.findById(savedOrder._id)
             .populate('user', '-password')
             .populate({
@@ -79,10 +112,13 @@ const createOrder = AsyncWrapper(async (req, res) => {
             });
 
         res.status(201).json({ status: HttpStatus.SUCCESS, data: { order: populatedOrder } });
+
     } catch (error) {
-        next(error); // Pass error to error handling middleware
+        next(error); // Handle other errors (database, validation, etc.)
     }
 });
+
+
 
 const updateOrder = AsyncWrapper(async (req, res, next) => {
     const orderId = req.params.id;
